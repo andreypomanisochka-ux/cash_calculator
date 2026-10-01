@@ -185,8 +185,8 @@ function loadSettings() {
   }
 }
 
-let settings = loadSettings();
-let productionRecords = loadProductionRecords();
+let settings = { ...DEFAULT_SETTINGS };
+let productionRecords = {};
 let selectedMonth = getCurrentMonth();
 
 function getMonthQuantity() {
@@ -520,17 +520,26 @@ document.querySelector('#clear-archive').addEventListener('click', () => {
 });
 
 elements.themeSelect.addEventListener('change', () => applyTheme(elements.themeSelect.value));
-let savedTheme = 'dark';
-try {
-  savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'dark';
-} catch {
-  savedTheme = 'dark';
-}
-applyTheme(savedTheme, false);
+function initializeApp() {
+  settings = loadSettings();
+  productionRecords = loadProductionRecords();
 
-const savedSettings = loadSettings();
-setSettingsInputs(savedSettings);
-settings = savedSettings;
-elements.entryDate.value = getTodayKey();
-renderFormula();
-renderMonth();
+  let savedTheme = 'dark';
+  try {
+    savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || 'dark';
+  } catch {
+    savedTheme = 'dark';
+  }
+
+  applyTheme(savedTheme, false);
+  setSettingsInputs(settings);
+  elements.entryDate.value = getTodayKey();
+  renderFormula();
+  renderMonth();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeApp, { once: true });
+} else {
+  initializeApp();
+}
