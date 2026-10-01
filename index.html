@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" id="theme-color-meta" content="#101815">
+  <meta name="description" content="Калькулятор сдельной зарплаты по прогрессивной шкале для Даши.">
+  <title>Калькулятор сдельной зарплаты — для Даши</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Расчет для Даши">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span class="brand-name">РАСЧЕТ<span class="brand-period">.</span><small>СДЕЛЬНАЯ ОПЛАТА</small></span>
+      </a>
+      <div class="theme-switcher">
+        <label for="theme-select">Выбор стиля</label>
+        <select id="theme-select" aria-label="Выбрать визуальную тему">
+          <option value="light">☀️ Eco Mint</option>
+          <option value="dark">🌙 Dark Analytics</option>
+          <option value="pink">🦄 Pony Pink</option>
+          <option value="action">💥 Brutal Action</option>
+        </select>
+      </div>
+      <span class="topbar-note"><span class="status-dot" aria-hidden="true"></span>ФОРМУЛА АКТИВНА</span>
+    </header>
+
+    <section class="page-intro" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow"><span class="eyebrow-mark" aria-hidden="true"></span>РАСЧЕТ ДЛЯ ДАШИ</p>
+        <h1 id="page-title">Калькулятор сдельной зарплаты</h1>
+        <p class="intro-copy">Расчет сдельной оплаты труда по прогрессивной шкале</p>
+      </div>
+      <div class="period-stamp"><span>РУБ.</span><strong>₽</strong></div>
+    </section>
+
+    <section class="journal-panel panel" aria-labelledby="journal-heading">
+      <div class="journal-heading">
+        <div class="panel-heading">
+          <div class="section-index">01</div>
+          <div><p class="eyebrow">ПРОИЗВОДСТВО ПО ДНЯМ</p><h2 id="journal-heading">Ежедневный ввод продукции</h2></div>
+        </div>
+        <span class="saved-label"><span aria-hidden="true">●</span>ЗАПИСИ СОХРАНЯЮТСЯ АВТОМАТИЧЕСКИ</span>
+      </div>
+
+      <form class="daily-entry-form" id="daily-entry-form">
+        <div class="daily-field">
+          <label for="entry-date">Дата производства</label>
+          <input id="entry-date" name="date" type="date" required>
+        </div>
+        <div class="daily-field">
+          <label for="entry-quantity">Количество продукции, шт.</label>
+          <input id="entry-quantity" name="quantity" type="number" min="0" max="9007199254740991" step="1" inputmode="numeric" placeholder="0" required>
+        </div>
+        <button class="button button-primary" type="submit"><span aria-hidden="true">＋</span>Добавить / Обновить запись</button>
+      </form>
+      <p class="journal-feedback" id="journal-feedback" role="status" aria-live="polite"></p>
+
+      <div class="month-toolbar">
+        <div>
+          <p class="eyebrow">АРХИВ ПРОИЗВОДСТВА</p>
+          <h3 id="month-heading">Октябрь 2026</h3>
+        </div>
+        <span class="active-month-badge" id="active-month-badge">АКТИВНЫЙ МЕСЯЦ</span>
+        <div class="month-controls">
+          <button class="month-nav-button" id="previous-month" type="button" aria-label="Предыдущий месяц" title="Предыдущий месяц">‹</button>
+          <label class="visually-hidden" for="month-picker">Выберите месяц</label>
+          <input id="month-picker" type="month" aria-label="Выберите месяц">
+          <button class="month-nav-button" id="next-month" type="button" aria-label="Следующий месяц" title="Следующий месяц">›</button>
+        </div>
+      </div>
+
+      <div class="month-summary" aria-label="Итоги за месяц">
+        <div class="summary-cell"><span>ПРОИЗВЕДЕНО</span><strong id="month-production">0 <small>шт.</small></strong></div>
+        <div class="summary-cell"><span>РАБОЧИХ ДНЕЙ</span><strong id="month-workdays">0</strong></div>
+        <div class="summary-cell"><span>СРЕДНЕЕ ЗА РАБОЧИЙ ДЕНЬ</span><strong id="month-average">0 <small>шт.</small></strong></div>
+        <div class="summary-cell summary-salary"><span>ЗАРПЛАТА ЗА МЕСЯЦ</span><strong id="month-salary">0 ₽</strong></div>
+      </div>
+
+      <details class="calendar-disclosure" id="calendar-disclosure" open>
+        <summary class="calendar-summary"><span>Дни месяца</span><span class="calendar-day-count" id="calendar-day-count">31 день</span><span class="disclosure-chevron" aria-hidden="true">⌄</span></summary>
+        <div class="calendar-content">
+          <div class="journal-table-wrap" tabindex="0" aria-label="Журнал производства за выбранный месяц, прокручивается по горизонтали на узком экране">
+            <table class="journal-table">
+              <thead><tr><th scope="col">ДАТА</th><th scope="col">ДЕНЬ НЕДЕЛИ</th><th scope="col">КОЛИЧЕСТВО</th><th scope="col">СТАТУС</th><th scope="col">ДЕЙСТВИЯ</th></tr></thead>
+              <tbody id="journal-rows"></tbody>
+            </table>
+          </div>
+          <p class="journal-note">Незаполненные будни отмечаются как пропущенные, суббота и воскресенье — как выходные.</p>
+        </div>
+      </details>
+    </section>
+
+    <input id="quantity-input" type="hidden" value="0" aria-hidden="true">
+    <div class="calculator-grid">
+      <section class="result-panel panel" aria-labelledby="result-heading" aria-live="polite">
+        <div class="result-topline"><p class="eyebrow" id="result-heading">ИТОГОВАЯ ЗАРПЛАТА</p><span class="result-period" id="result-period">ЗА МЕСЯЦ</span></div>
+        <p class="result-value" id="salary-total">0 <span>₽</span></p>
+        <p class="result-caption">Начислено за <strong id="result-quantity">0 шт</strong></p>
+        <div class="result-rule" aria-hidden="true"></div>
+        <h3 class="detail-heading">Из чего складывается сумма</h3>
+        <div class="detail-list" id="detail-list">
+          <div class="detail-row">
+            <div class="detail-copy"><span class="tier-marker tier-one">01</span><div><strong id="detail-label-1">Первые 10 000 шт</strong><small><span id="detail-count-1">0 шт</span> × <span id="detail-rate-1">8,00</span> ₽</small></div></div>
+            <strong class="detail-sum" id="detail-sum-1">0 ₽</strong>
+          </div>
+          <div class="detail-row">
+            <div class="detail-copy"><span class="tier-marker tier-two">02</span><div><strong id="detail-label-2">От 10 001 до 17 000 шт</strong><small><span id="detail-count-2">0 шт</span> × <span id="detail-rate-2">9,50</span> ₽</small></div></div>
+            <strong class="detail-sum" id="detail-sum-2">0 ₽</strong>
+          </div>
+          <div class="detail-row">
+            <div class="detail-copy"><span class="tier-marker tier-three">03</span><div><strong id="detail-label-3">Свыше 17 000 шт</strong><small><span id="detail-count-3">0 шт</span> × <span id="detail-rate-3">11,00</span> ₽</small></div></div>
+            <strong class="detail-sum" id="detail-sum-3">0 ₽</strong>
+          </div>
+        </div>
+      </section>
+
+      <details class="settings-panel panel" id="settings-disclosure" aria-labelledby="settings-heading" open>
+        <summary class="settings-summary">
+        <div class="settings-heading">
+          <div class="panel-heading">
+            <div class="section-index section-index-muted">02</div>
+            <div><p class="eyebrow">ГИБКАЯ ШКАЛА</p><h2 id="settings-heading">Настройка формулы и тарифов</h2></div>
+          </div>
+          <span class="saved-label"><span aria-hidden="true">●</span>СОХРАНЯЕТСЯ АВТОМАТИЧЕСКИ</span>
+        </div>
+          <span class="disclosure-chevron" aria-hidden="true">⌄</span>
+        </summary>
+
+        <div class="settings-content">
+        <div class="tariff-grid" id="tariff-settings">
+          <article class="tariff-card tariff-one">
+            <div class="tariff-card-top"><span class="tier-marker tier-one">01</span><span class="tariff-label">СТАРТОВЫЙ ДИАПАЗОН</span></div>
+            <label for="threshold-one">До, шт</label>
+            <input id="threshold-one" name="thresholdOne" type="number" min="1" step="1" value="10000" inputmode="numeric">
+            <label class="rate-label" for="rate-one">Ставка, ₽/шт</label>
+            <div class="rate-field"><input id="rate-one" name="rateOne" type="number" min="0" step="any" value="8.0" inputmode="decimal"><span>₽</span></div>
+          </article>
+          <article class="tariff-card tariff-two">
+            <div class="tariff-card-top"><span class="tier-marker tier-two">02</span><span class="tariff-label">СРЕДНИЙ ДИАПАЗОН</span></div>
+            <label for="threshold-two">До, шт</label>
+            <input id="threshold-two" name="thresholdTwo" type="number" min="2" step="1" value="17000" inputmode="numeric">
+            <label class="rate-label" for="rate-two">Ставка, ₽/шт</label>
+            <div class="rate-field"><input id="rate-two" name="rateTwo" type="number" min="0" step="any" value="9.5" inputmode="decimal"><span>₽</span></div>
+          </article>
+          <article class="tariff-card tariff-three">
+            <div class="tariff-card-top"><span class="tier-marker tier-three">03</span><span class="tariff-label">ВЕРХНИЙ ДИАПАЗОН</span></div>
+            <p class="open-range">Свыше <strong id="open-range-start">17 000</strong> шт</p>
+            <label class="rate-label rate-label-last" for="rate-three">Ставка, ₽/шт</label>
+            <div class="rate-field"><input id="rate-three" name="rateThree" type="number" min="0" step="any" value="11.0" inputmode="decimal"><span>₽</span></div>
+          </article>
+        </div>
+        <p class="settings-error" id="settings-error" role="status" aria-live="polite"></p>
+
+        <div class="formula-box">
+          <div class="formula-heading"><span class="formula-symbol" aria-hidden="true">ƒx</span><div><p class="eyebrow">СТУПЕНЧАТЫЙ РАСЧЕТ</p><strong>Текущая формула</strong></div></div>
+          <p class="formula-text" id="formula-text"></p>
+          <p class="formula-note">Каждая ставка применяется только к единицам внутри своего диапазона.</p>
+        </div>
+        </div>
+      </details>
+    </div>
+
+    <details class="archive-panel panel" id="archive-panel">
+      <summary class="archive-summary">
+        <span class="archive-summary-copy"><span class="eyebrow">ИСТОРИЯ ВЫРАБОТКИ</span><strong>Архив прошлых месяцев</strong><small>Месячные итоги и переход к записям по дням</small></span>
+        <span class="archive-summary-end"><span class="archive-count" id="archive-count">0 месяцев</span><span class="archive-chevron" aria-hidden="true">⌄</span></span>
+      </summary>
+      <div class="archive-content">
+        <div class="archive-tools">
+          <p>Итоги пересчитываются по сохраненным записям и текущим тарифам.</p>
+          <div class="archive-actions">
+            <button class="archive-tool-button" id="export-data" type="button">Экспорт JSON</button>
+            <button class="archive-tool-button" id="import-data" type="button">Импорт JSON</button>
+            <button class="archive-tool-button archive-clear-button" id="clear-archive" type="button">Очистить архив</button>
+            <input class="visually-hidden" id="import-file" type="file" accept="application/json,.json">
+          </div>
+        </div>
+        <p class="archive-feedback" id="archive-feedback" role="status" aria-live="polite"></p>
+        <div class="archive-empty" id="archive-empty">Пока нет сохраненных записей. Добавьте дневную выработку, чтобы месяц появился в архиве.</div>
+        <div class="archive-grid" id="archive-grid"></div>
+      </div>
+    </details>
+
+    <footer class="page-footer"><span>Записи и тарифы хранятся в этом браузере</span><span>Сдельный расчет <i></i> <strong>готов</strong></span></footer>
+  </main>
+</body>
+</html>
