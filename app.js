@@ -49,12 +49,18 @@ const elements = {
   archiveEmpty: document.querySelector('#archive-empty'),
   archiveFeedback: document.querySelector('#archive-feedback'),
   importFile: document.querySelector('#import-file'),
+  clearMonth: document.querySelector('#clear-month'),
+  resetJournal: document.querySelector('#reset-journal'),
+  reportScope: document.querySelector('#report-scope'),
+  exportCsv: document.querySelector('#export-csv'),
 };
 
 const numberFormat = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
 const quantityFormat = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
+const csvNumberFormat = new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
 const weekdayFormat = new Intl.DateTimeFormat('ru-RU', { weekday: 'long' });
 const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short' });
+const csvDateFormat = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 function applyTheme(theme, persist = true) {
   const selectedTheme = Object.hasOwn(THEME_COLORS, theme) ? theme : 'dark';
@@ -234,6 +240,54 @@ function calculateSalary(quantity) {
   return { total, tierUnits, tierSums };
 }
 
+function roundMoney(amount) {
+  return Math.round((amount + Number.EPSILON) * 100) / 100;
+}
+
+function escapeCsvField(value) {
+  return `"${String(value).replaceAll('"', '""')}"`;
+}
+
+function createCsvRows(scope) {
+  const entries = Object.entries(productionRecords)
+    .filter(([dateKey]) => scope === 'all' || dateKey.startsWith(`${selectedMonth}-`))
+    .sort(([firstDate], [secondDate]) => firstDate.localeCompare(secondDate));
+  const months = new Map();
+
+  entries.forEach(([dateKey, quantity]) => {
+    const monthKey = dateKey.slice(0, 7);
+    months.set(monthKey, [...(months.get(monthKey) ?? []), [dateKey, quantity]]);
+  });
+
+  const rows = [];
+  months.forEach((monthEntries) => {
+    const monthQuantity = monthEntries.reduce((total, [, quantity]) => total + quantity, 0);
+    const monthSalary = roundMoney(calculateSalary(monthQuantity).total);
+    const effectiveRate = monthQuantity ? monthSalary / monthQuantity : 0;
+    const salaryCents = Math.round(monthSalary * 100);
+    const sharesInCents = monthEntries.map(([, quantity]) => salaryCents * quantity / (monthQuantity || 1));
+    const allocatedCents = sharesInCents.map(Math.floor);
+    const remainderOrder = sharesInCents
+      .map((share, index) => ({ index, remainder: share - allocatedCents[index] }))
+      .sort((first, second) => second.remainder - first.remainder);
+    const centsToAllocate = salaryCents - allocatedCents.reduce((total, cents) => total + cents, 0);
+    for (let index = 0; index < centsToAllocate; index += 1) {
+      allocatedCents[remainderOrder[index].index] += 1;
+    }
+
+    monthEntries.forEach(([dateKey, quantity], index) => {
+      rows.push([
+        csvDateFormat.format(parseDateKey(dateKey)),
+        quantity,
+        csvNumberFormat.format(effectiveRate),
+        csvNumberFormat.format(allocatedCents[index] / 100),
+      ]);
+    });
+  });
+
+  return rows;
+}
+
 function createCell(className, text) {
   const cell = document.createElement('td');
   if (className) cell.className = className;
@@ -275,6 +329,26 @@ function createJournalRow(dateKey) {
     elements.journalFeedback.textContent = `Запись за ${dateFormat.format(date)} загружена для редактирования.`;
   });
   actionCell.append(editButton);
+
+  const deleteButton = document.createElement('button');
+  deleteButton.type = 'button';
+  deleteButton.className = 'table-delete-button';
+  deleteButton.textContent = 'Удалить';
+  deleteButton.disabled = !Object.hasOwn(productionRecords, dateKey);
+  deleteButton.title = `Удалить запись за ${dateFormat.format(date)}`;
+  deleteButton.setAttribute('aria-label', `Удалить запись за ${dateFormat.format(date)}`);
+  deleteButton.addEventListener('click', () => {
+    if (!Object.hasOwn(productionRecords, dateKey)) return;
+    if (!window.confirm(`Удалить запись за ${dateFormat.format(date)}?`)) return;
+
+    const nextRecords = { ...productionRecords };
+    delete nextRecords[dateKey];
+    if (!persistProductionRecords(nextRecords)) return;
+    if (elements.entryDate.value === dateKey) elements.entryQuantity.value = '';
+    elements.journalFeedback.textContent = `Запись за ${dateFormat.format(date)} удалена.`;
+    renderMonth();
+  });
+  actionCell.append(deleteButton);
   row.append(actionCell);
   return row;
 }
@@ -377,12 +451,13 @@ function renderMonth() {
   renderArchive();
 }
 
-function persistProductionRecords() {
+function persistProductionRecords(records = productionRecords) {
   try {
-    localStorage.setItem(PRODUCTION_STORAGE_KEY, JSON.stringify(groupProductionRecords(productionRecords)));
+    localStorage.setItem(PRODUCTION_STORAGE_KEY, JSON.stringify(groupProductionRecords(records)));
+    productionRecords = records;
     return true;
   } catch {
-    elements.journalFeedback.textContent = 'Запись добавлена, но браузер не разрешил сохранить ее.';
+    elements.journalFeedback.textContent = 'Браузер не разрешил сохранить изменения журнала.';
     return false;
   }
 }
@@ -431,10 +506,10 @@ elements.entryForm.addEventListener('submit', (event) => {
     return;
   }
 
-  productionRecords[dateKey] = quantity;
+  const nextRecords = { ...productionRecords, [dateKey]: quantity };
+  if (!persistProductionRecords(nextRecords)) return;
   selectedMonth = dateKey.slice(0, 7);
   elements.entryQuantity.value = '';
-  persistProductionRecords();
   if (!elements.journalFeedback.textContent.startsWith('Запись добавлена,')) {
     elements.journalFeedback.textContent = `Запись за ${dateFormat.format(parseDateKey(dateKey))} сохранена: ${quantityFormat.format(quantity)} шт.`;
   }
@@ -463,21 +538,42 @@ function setMobileDisclosureState(event) {
 setMobileDisclosureState(mobileLayout);
 mobileLayout.addEventListener('change', setMobileDisclosureState);
 
+elements.exportCsv.addEventListener('click', () => {
+  const scope = elements.reportScope.value;
+  const header = ['Дата', 'Выработка (шт.)', 'Расчетный тариф (руб./шт.)', 'Начислено (руб.)'];
+  const csvRows = [header, ...createCsvRows(scope)];
+  const csvContent = csvRows.map((row) => row.map(escapeCsvField).join(';')).join('\r\n');
+  const blob = new Blob(['\uFEFF', csvContent], { type: 'text/csv;charset=utf-8' });
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = `dasha_salary_report_${scope === 'all' ? 'all-time' : selectedMonth}.csv`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+  elements.archiveFeedback.textContent = scope === 'all'
+    ? `Отчет за все время подготовлен: ${quantityFormat.format(csvRows.length - 1)} записей.`
+    : `Отчет за ${formatMonthTitle(selectedMonth)} подготовлен: ${quantityFormat.format(csvRows.length - 1)} записей.`;
+});
+
 document.querySelector('#export-data').addEventListener('click', () => {
   const backup = {
-    format: 'dasha-daily-production',
-    version: 1,
+    format: 'dasha-salary-app',
+    version: 2,
     exportedAt: new Date().toISOString(),
-    records: groupProductionRecords(productionRecords),
+    data: {
+      records: groupProductionRecords(productionRecords),
+      settings,
+      theme: document.documentElement.dataset.theme,
+    },
   };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
   const downloadUrl = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = downloadUrl;
-  link.download = `dasha-production-${getTodayKey()}.json`;
+  link.download = `dasha-backup-${getTodayKey()}.json`;
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-  elements.archiveFeedback.textContent = 'Архив подготовлен к экспорту в JSON.';
+  elements.archiveFeedback.textContent = 'Бэкап подготовлен к скачиванию в формате JSON.';
 });
 
 document.querySelector('#import-data').addEventListener('click', () => elements.importFile.click());
@@ -488,35 +584,91 @@ elements.importFile.addEventListener('change', async () => {
 
   try {
     const payload = JSON.parse(await file.text());
-    const source = payload.records ?? payload;
+    const isFullBackup = payload.format === 'dasha-salary-app' && payload.version === 2;
+    const source = isFullBackup ? payload.data?.records : payload.records ?? payload;
     if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('invalid');
     const importedRecords = normalizeProductionRecords(source);
-    productionRecords = { ...productionRecords, ...importedRecords };
-    if (!persistProductionRecords()) return;
-    elements.archiveFeedback.textContent = `Импортировано записей: ${quantityFormat.format(Object.keys(importedRecords).length)}.`;
+    let importedSettings = settings;
+    let importedTheme = document.documentElement.dataset.theme;
+
+    if (isFullBackup) {
+      const candidateSettings = { ...DEFAULT_SETTINGS, ...payload.data.settings };
+      if (!isValidSettings(candidateSettings) || !Object.hasOwn(THEME_COLORS, payload.data.theme)) throw new Error('invalid');
+      importedSettings = candidateSettings;
+      importedTheme = payload.data.theme;
+    }
+
+    const storageKeys = [PRODUCTION_STORAGE_KEY];
+    if (isFullBackup) storageKeys.push(STORAGE_KEY, THEME_STORAGE_KEY);
+    const previousValues = storageKeys.map((key) => [key, localStorage.getItem(key)]);
+    try {
+      localStorage.setItem(PRODUCTION_STORAGE_KEY, JSON.stringify(groupProductionRecords(importedRecords)));
+      if (isFullBackup) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(importedSettings));
+        localStorage.setItem(THEME_STORAGE_KEY, importedTheme);
+      }
+    } catch {
+      previousValues.forEach(([key, value]) => {
+        try {
+          if (value === null) localStorage.removeItem(key);
+          else localStorage.setItem(key, value);
+        } catch {
+          return;
+        }
+      });
+      throw new Error('storage');
+    }
+
+    productionRecords = importedRecords;
+    if (isFullBackup) {
+      settings = importedSettings;
+      setSettingsInputs(settings);
+      applyTheme(importedTheme, false);
+      renderFormula();
+    }
+    elements.archiveFeedback.textContent = `Бэкап загружен. Записей: ${quantityFormat.format(Object.keys(importedRecords).length)}.`;
     renderMonth();
-  } catch {
-    elements.archiveFeedback.textContent = 'Не удалось прочитать файл. Выберите корректный JSON-экспорт журнала.';
+  } catch (error) {
+    elements.archiveFeedback.textContent = error.message === 'storage'
+      ? 'Не удалось сохранить бэкап в localStorage. Текущие данные не изменены.'
+      : 'Не удалось прочитать файл. Выберите корректный JSON-бэкап журнала.';
   } finally {
     elements.importFile.value = '';
   }
 });
 
-document.querySelector('#clear-archive').addEventListener('click', () => {
-  if (!Object.keys(productionRecords).length) {
-    elements.archiveFeedback.textContent = 'Архив уже пуст.';
+elements.clearMonth.addEventListener('click', () => {
+  const monthRecords = Object.keys(productionRecords).filter((dateKey) => dateKey.startsWith(`${selectedMonth}-`));
+  if (!monthRecords.length) {
+    elements.archiveFeedback.textContent = 'В выбранном месяце нет записей.';
     return;
   }
-  if (!window.confirm('Удалить все дневные записи из архива? Это действие нельзя отменить.')) return;
+  if (!window.confirm(`Очистить все записи за ${formatMonthTitle(selectedMonth)}? Это действие нельзя отменить.`)) return;
 
-  try {
-    localStorage.removeItem(PRODUCTION_STORAGE_KEY);
-    productionRecords = {};
-    elements.archiveFeedback.textContent = 'Архив очищен.';
-    renderMonth();
-  } catch {
-    elements.archiveFeedback.textContent = 'Не удалось очистить архив в localStorage.';
+  const nextRecords = { ...productionRecords };
+  monthRecords.forEach((dateKey) => delete nextRecords[dateKey]);
+  if (!persistProductionRecords(nextRecords)) {
+    elements.archiveFeedback.textContent = elements.journalFeedback.textContent;
+    return;
   }
+  elements.archiveFeedback.textContent = `Записи за ${formatMonthTitle(selectedMonth)} удалены.`;
+  renderMonth();
+});
+
+elements.resetJournal.addEventListener('click', () => {
+  if (!Object.keys(productionRecords).length) {
+    elements.archiveFeedback.textContent = 'Журнал уже пуст.';
+    return;
+  }
+  if (!window.confirm('Сбросить весь журнал производства? Все записи за все месяцы будут удалены без возможности восстановления.')) return;
+  if (!window.confirm('Последнее подтверждение: безвозвратно удалить записи всех месяцев?')) return;
+
+  if (!persistProductionRecords({})) {
+    elements.archiveFeedback.textContent = elements.journalFeedback.textContent;
+    return;
+  }
+  elements.archiveFeedback.textContent = 'Весь журнал производства сброшен.';
+  renderMonth();
 });
 
 elements.themeSelect.addEventListener('change', () => applyTheme(elements.themeSelect.value));

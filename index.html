@@ -173,12 +173,22 @@
         <span class="archive-summary-end"><span class="archive-count" id="archive-count">0 месяцев</span><span class="archive-chevron" aria-hidden="true">⌄</span></span>
       </summary>
       <div class="archive-content">
-        <div class="archive-tools">
-          <p>Итоги пересчитываются по сохраненным записям и текущим тарифам.</p>
+        <div class="data-management">
+          <div class="data-management-heading">
+            <div><p class="eyebrow">РЕЗЕРВНАЯ КОПИЯ И ОТЧЕТЫ</p><h3>Управление данными и отчетами</h3></div>
+            <p>Бэкап включает журнал, тарифы и выбранную тему.</p>
+          </div>
           <div class="archive-actions">
-            <button class="archive-tool-button" id="export-data" type="button">Экспорт JSON</button>
-            <button class="archive-tool-button" id="import-data" type="button">Импорт JSON</button>
-            <button class="archive-tool-button archive-clear-button" id="clear-archive" type="button">Очистить архив</button>
+            <label class="visually-hidden" for="report-scope">Период отчета</label>
+            <select class="report-scope-select" id="report-scope" aria-label="Период отчета">
+              <option value="month">Выбранный месяц</option>
+              <option value="all">Вся история</option>
+            </select>
+            <button class="archive-tool-button report-csv-button" id="export-csv" type="button">📊 Скачать отчет (Excel / CSV)</button>
+            <button class="archive-tool-button" id="export-data" type="button">Скачать бэкап (JSON)</button>
+            <button class="archive-tool-button" id="import-data" type="button">Загрузить бэкап (JSON)</button>
+            <button class="archive-tool-button archive-clear-button" id="clear-month" type="button">🗑️ Очистить текущий месяц</button>
+            <button class="archive-tool-button archive-clear-button" id="reset-journal" type="button">⚠️ Сбросить весь журнал</button>
             <input class="visually-hidden" id="import-file" type="file" accept="application/json,.json">
           </div>
         </div>
